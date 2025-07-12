@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Gestor de Tareas</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin:0; padding:0; background:#f4f4f4; }
+    header { background:#333; color:#fff; padding:10px 20px; text-align:center; }
+    nav a { color:#fff; margin:0 10px; text-decoration:none; }
+    main, h2, h3, section { margin:10px; }
+    button { padding:4px 6px; margin:0 2px; font-size:14px; cursor:pointer; }
+    table { width:100%; border-collapse:collapse; margin-top:20px; }
+    th, td { border:1px solid #ccc; padding:6px; text-align:left; vertical-align:top; }
+    textarea { width:100%; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Bienvenido a tu gestor de tareas</h1>
+  <nav>
+    <a href="#inicio">Inicio</a>
+    <a href="#ContenidoPrincipal">Contenido principal</a>
+    <a href="#contacto">Contacto</a>
+  </nav>
+</header>
+
+<h2>Registro de usuario</h2>
+<form id="RegisterForm">
+  <input type="text" name="username" placeholder="Escribe tu nombre"><br>
+  <input type="password" name="password" placeholder="Crea una contraseña"><br>
+  <button type="submit">Registrarse</button>
+</form>
+
+<h2>Inicio de sesión</h2>
+<form id="LoginForm">
+  <input type="text" name="username" placeholder="Usuario"><br>
+  <input type="password" name="password" placeholder="Contraseña"><br>
+  <button type="submit">Login</button>
+</form>
+
+<div id="appContent" style="display:none;">
+  <div id="userWelcome" style="display:none; margin-top:15px;">
+    Bienvenido, <strong id="displayUsername"></strong>!
+  </div>
+  <button id="logoutBtn" style="display:none;">Cerrar sesión</button>
+
+  <section id="inicio">
+    <h2>Inicio</h2>
+    <p>Esta es la página de inicio donde podrás gestionar las tareas de tu proyecto...</p>
+  </section>
+
+  <h2>Gestor de Tareas</h2>
+  <div>
+    <input id="taskTitle" placeholder="Título">
+    <input type="date" id="taskStart">
+    <input id="taskClient" placeholder="Cliente">
+    <input id="taskProject" placeholder="ID Proyecto">
+    <input id="taskComments" placeholder="Comentarios">
+    <textarea id="taskDesc" rows="2" placeholder="Descripción"></textarea>
+    <button id="addTaskBtn">Añadir tarea</button>
+  </div>
+
+  <br>
+  <label for="statusFilter">Filtrar por estatus:</label>
+  <select id="statusFilter">
+    <option>Todos</option><option>Por hacer</option><option>En progreso</option><option>Rechazado</option><option>Cancelado</option><option>Cerrado</option><option>En pruebas de calidad</option><option>En validación por el usuario</option><option>En proceso de liberación</option>
+  </select>
+
+  <h3>Editar tarea seleccionada</h3>
+  <div id="editSection" style="display:none; border:1px solid #ccc; padding:10px; margin-top:10px;">
+    <p><strong>ID:</strong> <span id="editId"></span></p>
+    <label>Estatus:<br>
+      <select id="editStatus">
+        <option>Por hacer</option><option>En progreso</option><option>Rechazado</option><option>Cancelado</option><option>Cerrado</option><option>En pruebas de calidad</option><option>En validación por el usuario</option><option>En proceso de liberación</option>
+      </select>
+    </label><br><br>
+    <label>Nuevo comentario:</label><br>
+    <textarea id="editComment" rows="2" placeholder="Agregar comentario..."></textarea><br><br>
+    <button id="updateTaskBtn">Actualizar tarea</button>
+  </div>
+
+  <table id="tasksTable">
+    <thead><tr><th>ID</th><th>Título</th><th>Descripción</th><th>Inicio</th><th>Cliente</th><th>ID Proyecto</th><th>Comentarios</th><th>Estatus</th><th>Acciones</th></tr></thead>
+    <tbody></tbody>
+  </table>
+
+  <section id="contacto">
+    <h2>Contacto</h2>
+    <form id="contactForm">
+      <label>Nombre:<input name="name" required></label><br><br>
+      <label>Email:<input type="email" name="email" required></label><br><br>
+      <textarea name="message" rows="4" placeholder="Tu mensaje..." required></textarea><br><br>
+      <button type="submit">Enviar</button>
+    </form>
+  </section>
+</div>
+
+<script>
+let tasks = [], currentEditId = null;
+
+function saveTasks() {
+  localStorage.setItem('tasks', JSON.stringify(tasks));
+}
+
+function getFilteredTasks() {
+  const f = document.getElementById('statusFilter').value;
+  return f === 'Todos' ? tasks : tasks.filter(t => t.status === f);
+}
+
+function render() {
+  const tbody = document.querySelector('#tasksTable tbody');
+  tbody.innerHTML = '';
+  getFilteredTasks().forEach(t => {
+    tbody.insertAdjacentHTML('beforeend', `
+      <tr>
+        <td>${t.id}</td><td>${t.title}</td><td>${t.desc}</td><td>${t.start}</td>
+        <td>${t.client}</td><td>${t.projectId}</td>
+        <td>${(t.comments || '').replace(/\n/g,'<br>')}</td><td>${t.status}</td>
+        <td>
+          <button data-id="${t.id}" class="toggle">${t.status==='Por hacer'?'✔️':'↺'}</button>
+          <button data-id="${t.id}" class="delete">❌</button>
+        </td>
+      </tr>`);
+  });
+}
+
+function clearInputs() {
+  ['taskTitle','taskStart','taskClient','taskProject','taskComments','taskDesc'].forEach(id => document.getElementById(id).value = '');
+}
+
+document.getElementById('addTaskBtn').addEventListener('click', () => {
+  const t = {
+    id: Date.now(),
+    title: document.getElementById('taskTitle').value.trim(),
+    desc: document.getElementById('taskDesc').value.trim(),
+    start: document.getElementById('taskStart').value,
+    client: document.getElementById('taskClient').value.trim(),
+    projectId: document.getElementById('taskProject').value.trim(),
+    comments: document.getElementById('taskComments').value.trim(),
+    status: 'Por hacer'
+  };
+  if (!t.title) return alert('Falta título');
+  tasks.push(t);
+  saveTasks();
+  clearInputs();
+  render();
+});
+
+document.querySelector('#tasksTable tbody').addEventListener('click', e => {
+  const id = +e.target.dataset.id, i = tasks.findIndex(t => t.id === id);
+  if (e.target.classList.contains('toggle')) {
+    tasks[i].status = tasks[i].status === 'Por hacer' ? 'Cerrado' : 'Por hacer';
+    saveTasks(); render();
+  }
+  if (e.target.classList.contains('delete')) {
+    tasks.splice(i, 1); saveTasks(); render();
+  }
+});
+
+document.querySelector('#tasksTable tbody').addEventListener('dblclick', e => {
+  const row = e.target.closest('tr'), id = +row.children[0].textContent;
+  const task = tasks.find(t => t.id === id);
+  if (!task) return;
+  currentEditId = id;
+  document.getElementById('editId').textContent = id;
+  document.getElementById('editStatus').value = task.status;
+  document.getElementById('editComment').value = '';
+  document.getElementById('editSection').style.display = 'block';
+});
+
+document.getElementById('updateTaskBtn').addEventListener('click', () => {
+  const i = tasks.findIndex(t => t.id === currentEditId);
+  if (i < 0) return alert('Tarea no encontrada');
+  const ns = document.getElementById('editStatus').value;
+  const nc = document.getElementById('editComment').value.trim();
+  tasks[i].status = ns;
+  if (nc) tasks[i].comments += `\n[${new Date().toLocaleString()}] ${nc}`;
+  saveTasks(); render();
+  document.getElementById('editSection').style.display = 'none';
+  alert('Tarea actualizada');
+});
+
+document.getElementById('statusFilter').addEventListener('change', render);
+
+// --------- Registro, Login y Logout ---------
+function showCurrentUser() {
+  const su = JSON.parse(localStorage.getItem('user') || 'null');
+  if (su) {
+    document.getElementById('RegisterForm').style.display = 'none';
+    document.getElementById('LoginForm').style.display = 'none';
+    document.getElementById('appContent').style.display = 'block';
+    document.getElementById('userWelcome').style.display = 'block';
+    document.getElementById('logoutBtn').style.display = 'inline-block';
+    document.getElementById('displayUsername').textContent = su.username;
+    tasks = JSON.parse(localStorage.getItem('tasks') || '[]');
+    render();
+  } else {
+    document.getElementById('RegisterForm').style.display = 'block';
+    document.getElementById('LoginForm').style.display = 'block';
+    document.getElementById('appContent').style.display = 'none';
+    document.getElementById('userWelcome').style.display = 'none';
+    document.getElementById('logoutBtn').style.display = 'none';
+  }
+}
+
+document.getElementById('RegisterForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const u = e.target.username.value.trim();
+  const p = e.target.password.value.trim();
+  if (!u || !p) return alert('Usuario y contraseña requeridos');
+  localStorage.setItem('user', JSON.stringify({ username: u, password: p }));
+  alert('Usuario registrado. Ahora puedes iniciar sesión.');
+  e.target.reset();
+});
+
+document.getElementById('LoginForm').addEventListener('submit', e => {
+  e.preventDefault();
+  const u = e.target.username.value.trim();
+  const p = e.target.password.value.trim();
+  const su = JSON.parse(localStorage.getItem('user') || 'null');
+  if (!su) return alert('No hay usuario registrado');
+  if (su.username === u && su.password === p) {
+    showCurrentUser();
+  } else {
+    alert('Usuario o contraseña incorrectos');
+  }
+});
+
+document.getElementById('logoutBtn').addEventListener('click', () => {
+  localStorage.removeItem('user');
+  document.getElementById('LoginForm').reset();
+  showCurrentUser();
+});
+
+document.addEventListener('DOMContentLoaded', showCurrentUser);
+</script>
+
+</body>
+</html>
